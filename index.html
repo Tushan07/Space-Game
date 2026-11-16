@@ -43,10 +43,10 @@
     function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    let gameLoop, isPlaying = false, score = 0, energy = 0;
+    let gameLoop, isPlaying = false, score = 0, energy = 0, combo = 0, comboTimer = 0;
     let currentMode = 'easy';
-    let player = { x: w/2, y: h - 80, size: 15 };
-    let bullets = [], asteroids = [], cores = [], particles = [];
+    let player = { x: w/2, y: h - 80, size: 15, weaponLevel: 1, shield: false };
+    let bullets = [], asteroids = [], cores = [], particles = [], powerups = [];
     let shootInterval, screenShake = 0;
 
     let touchX = w/2;
@@ -66,7 +66,9 @@
         currentMode = mode;
         document.getElementById('start-menu').style.display = 'none';
         document.getElementById('game-over').style.display = 'none';
-        score = 0; energy = 0; bullets = []; asteroids = []; cores = []; particles = []; player.x = w/2;
+        score = 0; energy = 0; combo = 0; comboTimer = 0;
+        bullets = []; asteroids = []; cores = []; particles = []; powerups = []; 
+        player = { x: w/2, y: h - 80, size: 15, weaponLevel: 1, shield: false };
         document.getElementById('score').innerText = score;
         updateEnergyUI();
         isPlaying = true; screenShake = 0;
@@ -83,28 +85,39 @@
 
     function shoot() {
         if (!isPlaying) return;
-        bullets.push({ x: player.x, y: player.y - 20, speed: 12 });
+        if (player.weaponLevel === 1) {
+            bullets.push({ x: player.x, y: player.y - 20, vx: 0, vy: -12 });
+        } else if (player.weaponLevel === 2) {
+            bullets.push({ x: player.x - 8, y: player.y - 15, vx: 0, vy: -12 });
+            bullets.push({ x: player.x + 8, y: player.y - 15, vx: 0, vy: -12 });
+        } else {
+            bullets.push({ x: player.x, y: player.y - 20, vx: 0, vy: -13 });
+            bullets.push({ x: player.x - 12, y: player.y - 10, vx: -3, vy: -11 });
+            bullets.push({ x: player.x + 12, y: player.y - 10, vx: 3, vy: -11 });
+        }
     }
 
     function spawnAsteroid() {
         if (!isPlaying) return;
-        
-        // 根据模式调整参数
-        let spawnRate = currentMode === 'easy' ? 0.03 : 0.06;
-        let trackerRate = currentMode === 'easy' ? 0.0 : 0.2; // 简单模式没有追踪陨石
+        let spawnRate = currentMode === 'easy' ? 0.04 : 0.07;
+        let trackerRate = currentMode === 'easy' ? 0.0 : 0.2; 
         let speedMin = currentMode === 'easy' ? 1 : 3;
         let speedMax = currentMode === 'easy' ? 3 : 5;
 
         if (Math.random() > spawnRate) return;
-        
         let isTracker = Math.random() < trackerRate;
         asteroids.push({ 
             x: Math.random() * w, y: -30, 
             speed: isTracker ? Math.random() * 1.5 + 2 : Math.random() * (speedMax - speedMin) + speedMin, 
             size: isTracker ? 12 : Math.random() * 15 + 10,
-            rotation: 0, rotSpeed: (Math.random()-0.5)*0.1,
             isTracker: isTracker
         });
+    }
+
+    function spawnPowerup(x, y) {
+        let rand = Math.random();
+        if (rand < 0.1) powerups.push({ x: x, y: y, type: 'shield', speed: 2, size: 10 });
+        else if (rand < 0.2) powerups.push({ x: x, y: y, type: 'weapon', speed: 2, size: 10 });
     }
 
     function triggerNova() {
@@ -115,7 +128,6 @@
         for(let i=0; i<50; i++) {
             particles.push({ x: player.x, y: player.y, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, life: 1, color: '#00d2d3' });
         }
-
         asteroids.forEach(a => {
             score += a.isTracker ? 3 : 1;
             for(let i=0; i<5; i++) particles.push({ x: a.x, y: a.y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5, life: 1, color: '#feca57' });
@@ -125,6 +137,12 @@
     }
 
     function drawPlayer() {
+        if (player.shield) {
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+            ctx.beginPath(); ctx.arc(player.x, player.y, 30, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.stroke();
+        }
+
         ctx.fillStyle = 'rgba(0, 210, 211, 0.5)';
         ctx.beginPath();
         ctx.moveTo(player.x - 5, player.y + 15);
@@ -142,35 +160,63 @@
     }
 
     function checkCollisions() {
+        // 连击计时器
+        if (comboTimer > 0) { comboTimer--; if(comboTimer === 0) combo = 0; }
+
         for (let i = bullets.length - 1; i >= 0; i--) {
-            let b = bullets[i]; b.y -= b.speed;
-            if (b.y < 0) { bullets.splice(i, 1); continue; }
+            let b = bullets[i]; b.x += b.vx; b.y += b.vy;
+            if (b.y < -20 || b.x < -20 || b.x > w+20) { bullets.splice(i, 1); continue; }
             for (let j = asteroids.length - 1; j >= 0; j--) {
                 let a = asteroids[j];
                 if (Math.hypot(b.x - a.x, b.y - a.y) < a.size) {
                     bullets.splice(i, 1); asteroids.splice(j, 1);
-                    score += a.isTracker ? 3 : 1;
+                    
+                    // 连击系统
+                    combo++; comboTimer = 60; // 1秒内连击有效
+                    let points = (a.isTracker ? 3 : 1) * (1 + Math.floor(combo/5));
+                    score += points;
                     document.getElementById('score').innerText = score;
-                    // 简单模式掉率更高，让玩家更容易攒大招
-                    let dropRate = currentMode === 'easy' ? 0.7 : 0.4;
-                    if (Math.random() < dropRate) cores.push({x: a.x, y: a.y, speed: 2, size: 6});
+
+                    if (combo === 5) particles.push({text: "Double Kill!", x: a.x, y: a.y, life: 1, isText: true});
+                    if (combo === 10) particles.push({text: "Triple Kill!", x: a.x, y: a.y, life: 1, isText: true});
+
+                    if (Math.random() < 0.7) cores.push({x: a.x, y: a.y, speed: 2, size: 6});
+                    spawnPowerup(a.x, a.y);
                     break;
                 }
             }
         }
 
+        // 吃能量球
         for (let i = cores.length - 1; i >= 0; i--) {
             let c = cores[i]; c.y += c.speed;
             if (Math.hypot(player.x - c.x, player.y - c.y) < player.size + c.size) {
-                cores.splice(i, 1);
-                energy += (currentMode === 'easy' ? 25 : 15); // 简单模式吃球加更多能量
-                updateEnergyUI();
+                cores.splice(i, 1); energy += 15; updateEnergyUI();
             } else if (c.y > h) cores.splice(i, 1);
         }
 
+        // 吃道具
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            let p = powerups[i]; p.y += p.speed;
+            if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
+                if (p.type === 'shield') player.shield = true;
+                if (p.type === 'weapon') player.weaponLevel = Math.min(3, player.weaponLevel + 1);
+                powerups.splice(i, 1); screenShake = 5;
+            } else if (p.y > h) powerups.splice(i, 1);
+        }
+
+        // 撞陨石
         for (let i = asteroids.length - 1; i >= 0; i--) {
             let a = asteroids[i];
-            if (Math.hypot(player.x - a.x, player.y - a.y) < a.size + player.size) gameOver();
+            if (Math.hypot(player.x - a.x, player.y - a.y) < a.size + player.size) {
+                if (player.shield) {
+                    player.shield = false; // 破盾
+                    asteroids.splice(i, 1); screenShake = 15;
+                    for(let k=0; k<15; k++) particles.push({ x: player.x, y: player.y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, life: 1, color: '#ffd700' });
+                } else {
+                    gameOver();
+                }
+            }
         }
     }
 
@@ -191,10 +237,12 @@
         player.x = Math.max(20, Math.min(w - 20, player.x));
         drawPlayer();
 
+        // 绘制子弹
         ctx.fillStyle = '#feca57'; ctx.shadowBlur = 10; ctx.shadowColor = '#feca57';
         bullets.forEach(b => { ctx.fillRect(b.x - 2, b.y, 4, 15); });
         ctx.shadowBlur = 0;
 
+        // 绘制陨石
         asteroids.forEach(a => {
             a.y += a.speed;
             if (a.isTracker) a.x += (player.x - a.x) * 0.02;
@@ -202,16 +250,33 @@
             ctx.beginPath(); ctx.arc(a.x, a.y, a.size, 0, Math.PI*2); ctx.fill();
         });
 
+        // 绘制能量球
         ctx.fillStyle = '#00d2d3'; ctx.shadowBlur = 10; ctx.shadowColor = '#00d2d3';
         cores.forEach(c => { ctx.beginPath(); ctx.arc(c.x, c.y, c.size, 0, Math.PI*2); ctx.fill(); });
+        
+        // 绘制道具
+        powerups.forEach(p => {
+            if (p.type === 'shield') { ctx.fillStyle = '#ffd700'; ctx.shadowColor = '#ffd700'; }
+            if (p.type === 'weapon') { ctx.fillStyle = '#ff9f43'; ctx.shadowColor = '#ff9f43'; }
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+        });
         ctx.shadowBlur = 0;
 
+        // 粒子与文字特效
         for(let i=particles.length-1; i>=0; i--) {
             let p = particles[i];
-            p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-            if(p.life <= 0) { particles.splice(i, 1); continue; }
-            ctx.fillStyle = `rgba(0, 210, 211, ${p.life})`;
-            ctx.fillRect(p.x, p.y, 3, 3);
+            if (p.isText) {
+                p.y -= 1; p.life -= 0.02;
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
+                ctx.font = "bold 24px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(p.text, p.x, p.y);
+            } else {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
+                ctx.fillRect(p.x, p.y, 3, 3);
+            }
+            if(p.life <= 0) particles.splice(i, 1);
         }
 
         spawnAsteroid();
@@ -222,8 +287,7 @@
     }
 
     function gameOver() {
-        isPlaying = false; clearInterval(songInterval);
-        clearInterval(shootInterval);
+        isPlaying = false; clearInterval(shootInterval);
         document.getElementById('final-score').innerText = score;
         document.getElementById('game-over').style.display = 'block';
         document.getElementById('game-over').onclick = () => { document.getElementById('start-menu').style.display = 'flex'; document.getElementById('game-over').style.display = 'none'; };
