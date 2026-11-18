@@ -25,18 +25,66 @@
 <div id="energy-text">点击屏幕释放全屏超载！</div>
 <div id="energy-bar-container"><div id="energy-bar"></div></div>
 
-<div id="start-menu" class="start-menu">
-    <button class="btn btn-easy" onclick="startGame('easy')">简单模式 (演示推荐)</button>
-    <button class="btn btn-hard" onclick="startGame('hard')">困难模式 (极限挑战)</button>
+<!-- 主菜单面板 (初始显示) -->
+<div id="main-menu" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10;">
+    <h1 style="color: #00d2d3; text-shadow: 0 0 15px #00d2d3; font-size: 40px; margin-bottom: 10px;">星际防线</h1>
+    <div style="color: #ffd700; font-size: 20px; margin-bottom: 20px;">🪙 星币: <span id="coin-display">0</span></div>
+    
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <button class="btn btn-easy" onclick="startGame('endless')">无尽模式 (极速射爆)</button>
+        <button class="btn btn-hard" onclick="startGame('campaign')">闯关模式 (目标击杀)</button>
+        <button class="btn" style="background: #feca57; color: #000;" onclick="upgradeWeapon()">升级火力 (消耗 50 星币)</button>
+    </div>
+    <p style="color: #aaa; font-size: 12px; margin-top: 15px;">当前火力等级: Lv.<span id="weapon-level-display">1</span></p>
 </div>
 
-<div id="game-over">
+<!-- 游戏结束面板 (初始隐藏) -->
+<div id="game-over" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); color: #ff4757; padding: 30px 50px; border: 2px solid #ff4757; border-radius: 10px; text-align: center; display: none; z-index: 10;">
+    <h2>防线失守！</h2>
+    <p>本次得分: <span id="final-score">0</span></p>
+    <p style="color: #ffd700;">获得星币: <span id="earned-coins">0</span></p>
+    <p id="ai-report" style="color: #feca57; font-size: 14px; margin-top: 15px;"></p>
+    <button class="btn btn-easy" style="margin-top: 20px;" onclick="backToMenu()">返回主菜单</button>
+</div>
     <h2>防线失守！</h2>
     <p>最终得分: <span id="final-score">0</span></p>
     <p style="font-size: 12px; color: #aaa;">点击屏幕重新部署</p>
 </div>
 
 <script>
+    // === 全局状态与本地存档 ===
+let gameState = 'MENU'; // 状态机: MENU(菜单), PLAYING(游戏中), GAMEOVER(死亡)
+let playerData = JSON.parse(localStorage.getItem('spaceGameSave')) || {
+    coins: 0,
+    weaponLevel: 1
+};
+
+// 更新主菜单 UI
+function updateMenuUI() {
+    document.getElementById('coin-display').innerText = playerData.coins;
+    document.getElementById('weapon-level-display').innerText = playerData.weaponLevel;
+}
+
+// 局外升级武器
+function upgradeWeapon() {
+    let cost = playerData.weaponLevel * 50;
+    if (playerData.coins >= cost) {
+        playerData.coins -= cost;
+        playerData.weaponLevel++;
+        localStorage.setItem('spaceGameSave', JSON.stringify(playerData));
+        updateMenuUI();
+    } else {
+        alert("星币不足！去打陨石赚点吧！");
+    }
+}
+
+// 返回主菜单
+function backToMenu() {
+    gameState = 'MENU';
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'block';
+    updateMenuUI();
+}
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     let w, h;
@@ -63,21 +111,28 @@
     }
 
     function startGame(mode) {
-        currentMode = mode;
-        document.getElementById('start-menu').style.display = 'none';
-        document.getElementById('game-over').style.display = 'none';
-        score = 0; energy = 0; combo = 0; comboTimer = 0;
-        bullets = []; asteroids = []; cores = []; particles = []; powerups = []; 
-        player = { x: w/2, y: h - 80, size: 15, weaponLevel: 1, shield: false };
-        document.getElementById('score').innerText = score;
-        updateEnergyUI();
-        isPlaying = true; screenShake = 0;
-        clearInterval(shootInterval);
-        shootInterval = setInterval(shoot, 200);
-        if (gameLoop) cancelAnimationFrame(gameLoop);
-        update();
-    }
-
+    gameState = 'PLAYING';
+    currentMode = mode; // 'endless' 或 'campaign'
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    
+    score = 0; energy = 0; combo = 0; comboTimer = 0;
+    bullets = []; asteroids = []; cores = []; particles = []; powerups = []; 
+    
+    // 继承局外养成的火力等级
+    player = { x: w/2, y: h - 80, size: 15, weaponLevel: playerData.weaponLevel, shield: false };
+    
+    document.getElementById('score').innerText = score;
+    updateEnergyUI();
+    screenShake = 0;
+    
+    clearInterval(shootInterval);
+    // 根据局外等级调整射速
+    shootInterval = setInterval(shoot, 200 - (player.weaponLevel * 10));
+    
+    if (gameLoop) cancelAnimationFrame(gameLoop);
+    update();
+}
     function updateEnergyUI() {
         document.getElementById('energy-bar').style.width = Math.min(energy, 100) + '%';
         document.getElementById('energy-text').style.opacity = energy >= 100 ? '1' : '0';
