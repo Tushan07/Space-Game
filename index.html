@@ -7,16 +7,16 @@
 <style>
     body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; }
     canvas { display: block; }
-    #ui { position: absolute; top: 10px; left: 10px; color: #fff; font-size: 18px; pointer-events: none; text-shadow: 1px 1px 3px #000; }
-    #energy-bar-container { position: absolute; bottom: 20px; left: 10%; width: 80%; height: 15px; background: rgba(255,255,255,0.1); border: 2px solid #00d2d3; border-radius: 10px; pointer-events: none; overflow: hidden;}
+    #ui { position: absolute; top: 10px; left: 10px; color: #fff; font-size: 18px; pointer-events: none; text-shadow: 1px 1px 3px #000; z-index: 5;}
+    #energy-bar-container { position: absolute; bottom: 20px; left: 10%; width: 80%; height: 15px; background: rgba(255,255,255,0.1); border: 2px solid #00d2d3; border-radius: 10px; pointer-events: none; overflow: hidden; z-index: 5;}
     #energy-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #00d2d3, #0abde3); box-shadow: 0 0 10px #00d2d3; transition: width 0.1s; }
-    #energy-text { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); color: #00d2d3; font-size: 12px; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.3s;}
-    #game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); color: #ff4757; padding: 20px 40px; border: 2px solid #ff4757; border-radius: 10px; text-align: center; display: none; z-index: 10; box-shadow: 0 0 20px #ff4757; }
-    .start-menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: flex; flex-direction: column; gap: 15px; z-index: 10; }
-    .btn { color: #fff; border: none; padding: 15px 40px; font-size: 20px; border-radius: 50px; cursor: pointer; transition: all 0.2s; }
+    #energy-text { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); color: #00d2d3; font-size: 12px; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 5;}
+    
+    .btn { color: #fff; border: none; padding: 12px 30px; font-size: 18px; border-radius: 50px; cursor: pointer; transition: all 0.2s; margin: 5px; }
+    .btn:hover { transform: scale(1.05); }
     .btn-easy { background: #2ed573; box-shadow: 0 0 15px #2ed573; }
     .btn-hard { background: #ff4757; box-shadow: 0 0 15px #ff4757; }
-    .btn:hover { transform: scale(1.05); }
+    .btn-upgrade { background: #feca57; color: #000; box-shadow: 0 0 15px #feca57; }
 </style>
 </head>
 <body>
@@ -25,66 +25,49 @@
 <div id="energy-text">点击屏幕释放全屏超载！</div>
 <div id="energy-bar-container"><div id="energy-bar"></div></div>
 
-<!-- 主菜单面板 (初始显示) -->
-<div id="main-menu" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10;">
-    <h1 style="color: #00d2d3; text-shadow: 0 0 15px #00d2d3; font-size: 40px; margin-bottom: 10px;">星际防线</h1>
-    <div style="color: #ffd700; font-size: 20px; margin-bottom: 20px;">🪙 星币: <span id="coin-display">0</span></div>
+<!-- 主菜单面板 -->
+<div id="main-menu" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; display: flex; flex-direction: column; background: rgba(0,0,0,0.7); padding: 40px; border-radius: 20px; border: 1px solid #333;">
+    <h1 style="color: #00d2d3; text-shadow: 0 0 15px #00d2d3; font-size: 40px; margin-bottom: 10px; margin-top: 0;">星际防线</h1>
+    <div style="color: #ffd700; font-size: 22px; margin-bottom: 20px;">🪙 星币: <span id="coin-display">0</span></div>
     
-    <div style="display: flex; flex-direction: column; gap: 15px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
         <button class="btn btn-easy" onclick="startGame('endless')">无尽模式 (极速射爆)</button>
-        <button class="btn btn-hard" onclick="startGame('campaign')">闯关模式 (目标击杀)</button>
-        <button class="btn" style="background: #feca57; color: #000;" onclick="upgradeWeapon()">升级火力 (消耗 50 星币)</button>
+        <button class="btn btn-hard" onclick="startGame('campaign')">闯关模式 (剧情战役)</button>
+        <button class="btn btn-upgrade" onclick="upgradeWeapon()">升级火力 (消耗星币)</button>
     </div>
-    <p style="color: #aaa; font-size: 12px; margin-top: 15px;">当前火力等级: Lv.<span id="weapon-level-display">1</span></p>
+    <p style="color: #aaa; font-size: 14px; margin-top: 15px; margin-bottom: 0;">当前火力等级: Lv.<span id="weapon-level-display">1</span></p>
 </div>
 
-<!-- 游戏结束面板 (初始隐藏) -->
-<div id="game-over" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); color: #ff4757; padding: 30px 50px; border: 2px solid #ff4757; border-radius: 10px; text-align: center; display: none; z-index: 10;">
-    <h2>防线失守！</h2>
+<!-- 剧情弹窗 -->
+<div id="story-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; z-index: 20; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; box-sizing: border-box;">
+    <h2 id="story-title" style="color: #00d2d3; font-size: 32px; margin-bottom: 20px;">星球名称</h2>
+    <p id="story-text" style="color: #fff; font-size: 18px; max-width: 600px; line-height: 1.6; margin-bottom: 30px;">剧情描述...</p>
+    <button class="btn btn-easy" onclick="startLevelPlay()">进入战区</button>
+</div>
+
+<!-- 游戏结束面板 -->
+<div id="game-over" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); color: #ff4757; padding: 30px 50px; border: 2px solid #ff4757; border-radius: 10px; text-align: center; display: none; z-index: 10; box-shadow: 0 0 20px #ff4757;">
+    <h2 style="margin-top: 0;">防线失守！</h2>
     <p>本次得分: <span id="final-score">0</span></p>
     <p style="color: #ffd700;">获得星币: <span id="earned-coins">0</span></p>
     <p id="ai-report" style="color: #feca57; font-size: 14px; margin-top: 15px;"></p>
     <button class="btn btn-easy" style="margin-top: 20px;" onclick="backToMenu()">返回主菜单</button>
 </div>
-    <h2>防线失守！</h2>
-    <p>最终得分: <span id="final-score">0</span></p>
-    <p style="font-size: 12px; color: #aaa;">点击屏幕重新部署</p>
-</div>
 
 <script>
     // === 全局状态与本地存档 ===
-let gameState = 'MENU'; // 状态机: MENU(菜单), PLAYING(游戏中), GAMEOVER(死亡)
-let playerData = JSON.parse(localStorage.getItem('spaceGameSave')) || {
-    coins: 0,
-    weaponLevel: 1
-};
+    let gameState = 'MENU'; 
+    let playerData = JSON.parse(localStorage.getItem('spaceGameSave')) || { coins: 0, weaponLevel: 1 };
 
-// 更新主菜单 UI
-function updateMenuUI() {
-    document.getElementById('coin-display').innerText = playerData.coins;
-    document.getElementById('weapon-level-display').innerText = playerData.weaponLevel;
-}
+    // === 关卡数据配置 ===
+    const campaignData = [
+        { level: 1, planet: "阿尔法 - 岩石星", color: "#1a1a2e", targetKills: 15, story: "舰长，我们进入了布满碎石的阿尔法星域。这里的陨石虽然速度不快，但数量众多，请清理出一条航道！" },
+        { level: 2, planet: "贝塔 - 赤焰星", color: "#2b0000", targetKills: 30, story: "警报！我们遭遇了赤焰星的引力风暴！这里充斥着极具攻击性的红色追踪陨石，小心你的背后！" },
+        { level: 3, planet: "伽马 - 深寒星", color: "#001a2b", targetKills: 50, story: "这里是一片死寂的深寒星域。敌方的陨石被冰层包裹，极为坚固，火力全开吧，这是最后的防线！" }
+    ];
+    let currentCampaignLevel = 0;
+    let currentLevelKills = 0;
 
-// 局外升级武器
-function upgradeWeapon() {
-    let cost = playerData.weaponLevel * 50;
-    if (playerData.coins >= cost) {
-        playerData.coins -= cost;
-        playerData.weaponLevel++;
-        localStorage.setItem('spaceGameSave', JSON.stringify(playerData));
-        updateMenuUI();
-    } else {
-        alert("星币不足！去打陨石赚点吧！");
-    }
-}
-
-// 返回主菜单
-function backToMenu() {
-    gameState = 'MENU';
-    document.getElementById('game-over').style.display = 'none';
-    document.getElementById('main-menu').style.display = 'block';
-    updateMenuUI();
-}
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     let w, h;
@@ -92,7 +75,7 @@ function backToMenu() {
     window.addEventListener('resize', resize); resize();
 
     let gameLoop, isPlaying = false, score = 0, energy = 0, combo = 0, comboTimer = 0;
-    let currentMode = 'easy';
+    let currentMode = 'endless';
     let player = { x: w/2, y: h - 80, size: 15, weaponLevel: 1, shield: false };
     let bullets = [], asteroids = [], cores = [], particles = [], powerups = [];
     let shootInterval, screenShake = 0;
@@ -105,34 +88,79 @@ function backToMenu() {
     window.addEventListener('keydown', (e) => { if (e.code === 'Space') triggerNova(); });
     canvas.addEventListener('click', () => { if(energy >= 100) triggerNova(); });
 
-    function handleInput(e) {
-        if (e.touches) touchX = e.touches[0].clientX;
-        else touchX = e.clientX;
+    function handleInput(e) { if (e.touches) touchX = e.touches[0].clientX; else touchX = e.clientX; }
+
+    // === UI 控制逻辑 ===
+    function updateMenuUI() {
+        document.getElementById('coin-display').innerText = playerData.coins;
+        document.getElementById('weapon-level-display').innerText = playerData.weaponLevel;
     }
 
+    function upgradeWeapon() {
+        let cost = playerData.weaponLevel * 50;
+        if (playerData.coins >= cost) {
+            playerData.coins -= cost;
+            playerData.weaponLevel++;
+            localStorage.setItem('spaceGameSave', JSON.stringify(playerData));
+            updateMenuUI();
+        } else { alert("星币不足！去打陨石赚点吧！"); }
+    }
+
+    function backToMenu() {
+        gameState = 'MENU'; isPlaying = false;
+        document.getElementById('game-over').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'flex';
+        updateMenuUI();
+        ctx.clearRect(0, 0, w, h); // 清空画布
+    }
+
+    // === 游戏启动与剧情 ===
     function startGame(mode) {
-    gameState = 'PLAYING';
-    currentMode = mode; // 'endless' 或 'campaign'
-    document.getElementById('main-menu').style.display = 'none';
-    document.getElementById('game-over').style.display = 'none';
-    
-    score = 0; energy = 0; combo = 0; comboTimer = 0;
-    bullets = []; asteroids = []; cores = []; particles = []; powerups = []; 
-    
-    // 继承局外养成的火力等级
-    player = { x: w/2, y: h - 80, size: 15, weaponLevel: playerData.weaponLevel, shield: false };
-    
-    document.getElementById('score').innerText = score;
-    updateEnergyUI();
-    screenShake = 0;
-    
-    clearInterval(shootInterval);
-    // 根据局外等级调整射速
-    shootInterval = setInterval(shoot, 200 - (player.weaponLevel * 10));
-    
-    if (gameLoop) cancelAnimationFrame(gameLoop);
-    update();
-}
+        currentMode = mode;
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('game-over').style.display = 'none';
+        
+        if (mode === 'campaign') {
+            currentCampaignLevel = 0;
+            score = 0; // 闯关模式重置总分
+            loadLevelStory();
+        } else {
+            score = 0;
+            gameState = 'PLAYING';
+            initGameSession();
+        }
+    }
+
+    function loadLevelStory() {
+        gameState = 'STORY';
+        let levelConfig = campaignData[currentCampaignLevel];
+        currentLevelKills = 0;
+        document.getElementById('story-title').innerText = levelConfig.planet;
+        document.getElementById('story-text').innerText = levelConfig.story;
+        document.getElementById('story-overlay').style.display = 'flex';
+    }
+
+    function startLevelPlay() {
+        document.getElementById('story-overlay').style.display = 'none';
+        gameState = 'PLAYING';
+        initGameSession();
+    }
+
+    function initGameSession() {
+        isPlaying = true;
+        energy = 0; combo = 0; comboTimer = 0;
+        bullets = []; asteroids = []; cores = []; particles = []; powerups = []; 
+        player = { x: w/2, y: h - 80, size: 15, weaponLevel: playerData.weaponLevel, shield: false };
+        document.getElementById('score').innerText = score;
+        updateEnergyUI();
+        screenShake = 0;
+        clearInterval(shootInterval);
+        shootInterval = setInterval(shoot, 200 - (player.weaponLevel * 10));
+        if (gameLoop) cancelAnimationFrame(gameLoop);
+        update();
+    }
+
+    // === 核心玩法逻辑 ===
     function updateEnergyUI() {
         document.getElementById('energy-bar').style.width = Math.min(energy, 100) + '%';
         document.getElementById('energy-text').style.opacity = energy >= 100 ? '1' : '0';
@@ -140,9 +168,8 @@ function backToMenu() {
 
     function shoot() {
         if (!isPlaying) return;
-        if (player.weaponLevel === 1) {
-            bullets.push({ x: player.x, y: player.y - 20, vx: 0, vy: -12 });
-        } else if (player.weaponLevel === 2) {
+        if (player.weaponLevel === 1) { bullets.push({ x: player.x, y: player.y - 20, vx: 0, vy: -12 }); }
+        else if (player.weaponLevel === 2) {
             bullets.push({ x: player.x - 8, y: player.y - 15, vx: 0, vy: -12 });
             bullets.push({ x: player.x + 8, y: player.y - 15, vx: 0, vy: -12 });
         } else {
@@ -154,10 +181,9 @@ function backToMenu() {
 
     function spawnAsteroid() {
         if (!isPlaying) return;
-        let spawnRate = currentMode === 'easy' ? 0.04 : 0.07;
-        let trackerRate = currentMode === 'easy' ? 0.0 : 0.2; 
-        let speedMin = currentMode === 'easy' ? 1 : 3;
-        let speedMax = currentMode === 'easy' ? 3 : 5;
+        let spawnRate = currentMode === 'endless' ? 0.06 : 0.04;
+        let trackerRate = currentMode === 'endless' ? 0.2 : (currentCampaignLevel === 1 ? 0.4 : 0.1); 
+        let speedMin = 2, speedMax = 4;
 
         if (Math.random() > spawnRate) return;
         let isTracker = Math.random() < trackerRate;
@@ -169,20 +195,10 @@ function backToMenu() {
         });
     }
 
-    function spawnPowerup(x, y) {
-        let rand = Math.random();
-        if (rand < 0.1) powerups.push({ x: x, y: y, type: 'shield', speed: 2, size: 10 });
-        else if (rand < 0.2) powerups.push({ x: x, y: y, type: 'weapon', speed: 2, size: 10 });
-    }
-
     function triggerNova() {
         if (energy < 100 || !isPlaying) return;
-        energy = 0; updateEnergyUI();
-        screenShake = 20;
-        
-        for(let i=0; i<50; i++) {
-            particles.push({ x: player.x, y: player.y, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, life: 1, color: '#00d2d3' });
-        }
+        energy = 0; updateEnergyUI(); screenShake = 20;
+        for(let i=0; i<50; i++) particles.push({ x: player.x, y: player.y, vx: (Math.random()-0.5)*20, vy: (Math.random()-0.5)*20, life: 1, color: '#00d2d3' });
         asteroids.forEach(a => {
             score += a.isTracker ? 3 : 1;
             for(let i=0; i<5; i++) particles.push({ x: a.x, y: a.y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5, life: 1, color: '#feca57' });
@@ -191,33 +207,38 @@ function backToMenu() {
         document.getElementById('score').innerText = score;
     }
 
+    function levelClear() {
+        isPlaying = false;
+        clearInterval(shootInterval);
+        currentCampaignLevel++;
+        playerData.coins += 50; 
+        localStorage.setItem('spaceGameSave', JSON.stringify(playerData));
+        document.getElementById('score').innerText = score;
+        
+        setTimeout(() => {
+            if (currentCampaignLevel < campaignData.length) {
+                alert(`战区清理完毕！获得 50 星币！\n即将前往下一个星球...`);
+                loadLevelStory();
+            } else {
+                alert("恭喜舰长！你已肃清了所有星域！获得最终胜利！");
+                backToMenu();
+            }
+        }, 100);
+    }
+
     function drawPlayer() {
         if (player.shield) {
-            ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
-            ctx.beginPath(); ctx.arc(player.x, player.y, 30, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'; ctx.beginPath(); ctx.arc(player.x, player.y, 30, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.stroke();
         }
-
-        ctx.fillStyle = 'rgba(0, 210, 211, 0.5)';
-        ctx.beginPath();
-        ctx.moveTo(player.x - 5, player.y + 15);
-        ctx.lineTo(player.x, player.y + 25 + Math.random()*10);
-        ctx.lineTo(player.x + 5, player.y + 15);
-        ctx.fill();
-
+        ctx.fillStyle = 'rgba(0, 210, 211, 0.5)'; ctx.beginPath(); ctx.moveTo(player.x - 5, player.y + 15); ctx.lineTo(player.x, player.y + 25 + Math.random()*10); ctx.lineTo(player.x + 5, player.y + 15); ctx.fill();
         ctx.fillStyle = '#00d2d3'; ctx.shadowBlur = 15; ctx.shadowColor = '#00d2d3';
-        ctx.beginPath();
-        ctx.moveTo(player.x, player.y - 20);
-        ctx.lineTo(player.x - 15, player.y + 15);
-        ctx.lineTo(player.x + 15, player.y + 15);
-        ctx.closePath(); ctx.fill();
-        ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.moveTo(player.x, player.y - 20); ctx.lineTo(player.x - 15, player.y + 15); ctx.lineTo(player.x + 15, player.y + 15); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
     }
 
     function checkCollisions() {
-        // 连击计时器
         if (comboTimer > 0) { comboTimer--; if(comboTimer === 0) combo = 0; }
-
+        
         for (let i = bullets.length - 1; i >= 0; i--) {
             let b = bullets[i]; b.x += b.vx; b.y += b.vy;
             if (b.y < -20 || b.x < -20 || b.x > w+20) { bullets.splice(i, 1); continue; }
@@ -225,66 +246,52 @@ function backToMenu() {
                 let a = asteroids[j];
                 if (Math.hypot(b.x - a.x, b.y - a.y) < a.size) {
                     bullets.splice(i, 1); asteroids.splice(j, 1);
-                    
-                    // 连击系统
-                    combo++; comboTimer = 60; // 1秒内连击有效
+                    combo++; comboTimer = 60;
                     let points = (a.isTracker ? 3 : 1) * (1 + Math.floor(combo/5));
                     score += points;
                     document.getElementById('score').innerText = score;
-
-                    if (combo === 5) particles.push({text: "Double Kill!", x: a.x, y: a.y, life: 1, isText: true});
-                    if (combo === 10) particles.push({text: "Triple Kill!", x: a.x, y: a.y, life: 1, isText: true});
-
+                    
+                    if (currentMode === 'campaign') {
+                        currentLevelKills++;
+                        if (currentLevelKills >= campaignData[currentCampaignLevel].targetKills) {
+                            levelClear(); return;
+                        }
+                    }
                     if (Math.random() < 0.7) cores.push({x: a.x, y: a.y, speed: 2, size: 6});
-                    spawnPowerup(a.x, a.y);
                     break;
                 }
             }
         }
 
-        // 吃能量球
         for (let i = cores.length - 1; i >= 0; i--) {
             let c = cores[i]; c.y += c.speed;
-            if (Math.hypot(player.x - c.x, player.y - c.y) < player.size + c.size) {
-                cores.splice(i, 1); energy += 15; updateEnergyUI();
-            } else if (c.y > h) cores.splice(i, 1);
+            if (Math.hypot(player.x - c.x, player.y - c.y) < player.size + c.size) { cores.splice(i, 1); energy += 15; updateEnergyUI(); } 
+            else if (c.y > h) cores.splice(i, 1);
         }
 
-        // 吃道具
-        for (let i = powerups.length - 1; i >= 0; i--) {
-            let p = powerups[i]; p.y += p.speed;
-            if (Math.hypot(player.x - p.x, player.y - p.y) < player.size + p.size) {
-                if (p.type === 'shield') player.shield = true;
-                if (p.type === 'weapon') player.weaponLevel = Math.min(3, player.weaponLevel + 1);
-                powerups.splice(i, 1); screenShake = 5;
-            } else if (p.y > h) powerups.splice(i, 1);
-        }
-
-        // 撞陨石
         for (let i = asteroids.length - 1; i >= 0; i--) {
             let a = asteroids[i];
             if (Math.hypot(player.x - a.x, player.y - a.y) < a.size + player.size) {
                 if (player.shield) {
-                    player.shield = false; // 破盾
-                    asteroids.splice(i, 1); screenShake = 15;
+                    player.shield = false; asteroids.splice(i, 1); screenShake = 15;
                     for(let k=0; k<15; k++) particles.push({ x: player.x, y: player.y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, life: 1, color: '#ffd700' });
-                } else {
-                    gameOver();
-                }
+                } else { gameOver(); }
             }
         }
     }
 
     function update() {
         if (!isPlaying) return;
-        
         ctx.save();
         if (screenShake > 0) {
             ctx.translate(Math.random()*screenShake - screenShake/2, Math.random()*screenShake - screenShake/2);
             screenShake *= 0.9; if(screenShake < 0.5) screenShake = 0;
         }
 
-        ctx.fillStyle = 'rgba(5, 5, 5, 0.4)'; ctx.fillRect(0, 0, w, h);
+        let bgColor = 'rgba(5, 5, 5, 0.4)'; 
+        if (currentMode === 'campaign') bgColor = campaignData[currentCampaignLevel].color + '88';
+        ctx.fillStyle = bgColor; ctx.fillRect(0, 0, w, h);
+        
         ctx.fillStyle = '#fff';
         for(let i=0; i<30; i++) ctx.fillRect(Math.random()*w, Math.random()*h, 1, 3);
 
@@ -292,12 +299,10 @@ function backToMenu() {
         player.x = Math.max(20, Math.min(w - 20, player.x));
         drawPlayer();
 
-        // 绘制子弹
         ctx.fillStyle = '#feca57'; ctx.shadowBlur = 10; ctx.shadowColor = '#feca57';
         bullets.forEach(b => { ctx.fillRect(b.x - 2, b.y, 4, 15); });
         ctx.shadowBlur = 0;
 
-        // 绘制陨石
         asteroids.forEach(a => {
             a.y += a.speed;
             if (a.isTracker) a.x += (player.x - a.x) * 0.02;
@@ -305,48 +310,47 @@ function backToMenu() {
             ctx.beginPath(); ctx.arc(a.x, a.y, a.size, 0, Math.PI*2); ctx.fill();
         });
 
-        // 绘制能量球
         ctx.fillStyle = '#00d2d3'; ctx.shadowBlur = 10; ctx.shadowColor = '#00d2d3';
         cores.forEach(c => { ctx.beginPath(); ctx.arc(c.x, c.y, c.size, 0, Math.PI*2); ctx.fill(); });
         
-        // 绘制道具
         powerups.forEach(p => {
-            if (p.type === 'shield') { ctx.fillStyle = '#ffd700'; ctx.shadowColor = '#ffd700'; }
-            if (p.type === 'weapon') { ctx.fillStyle = '#ff9f43'; ctx.shadowColor = '#ff9f43'; }
+            ctx.fillStyle = p.type === 'shield' ? '#ffd700' : '#ff9f43';
             ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
         });
         ctx.shadowBlur = 0;
 
-        // 粒子与文字特效
         for(let i=particles.length-1; i>=0; i--) {
             let p = particles[i];
-            if (p.isText) {
-                p.y -= 1; p.life -= 0.02;
-                ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
-                ctx.font = "bold 24px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText(p.text, p.x, p.y);
-            } else {
-                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-                ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`;
-                ctx.fillRect(p.x, p.y, 3, 3);
-            }
+            if (p.isText) { p.y -= 1; p.life -= 0.02; ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`; ctx.font = "bold 24px Arial"; ctx.textAlign = "center"; ctx.fillText(p.text, p.x, p.y); } 
+            else { p.x += p.vx; p.y += p.vy; p.life -= 0.05; ctx.fillStyle = `rgba(255, 255, 255, ${p.life})`; ctx.fillRect(p.x, p.y, 3, 3); }
             if(p.life <= 0) particles.splice(i, 1);
         }
 
         spawnAsteroid();
         checkCollisions();
-        
         ctx.restore();
         gameLoop = requestAnimationFrame(update);
     }
 
     function gameOver() {
-        isPlaying = false; clearInterval(shootInterval);
+        isPlaying = false; gameState = 'GAMEOVER'; clearInterval(shootInterval);
+        let earned = Math.floor(score / 2) + 10; 
+        playerData.coins += earned;
+        localStorage.setItem('spaceGameSave', JSON.stringify(playerData));
+        
         document.getElementById('final-score').innerText = score;
+        document.getElementById('earned-coins').innerText = earned;
         document.getElementById('game-over').style.display = 'block';
-        document.getElementById('game-over').onclick = () => { document.getElementById('start-menu').style.display = 'flex'; document.getElementById('game-over').style.display = 'none'; };
+        document.getElementById('ai-report').innerText = "【AI 战术分析】正在生成复盘...";
+        
+        setTimeout(() => {
+            let report = score < 20 ? "舰长，你的火力压制严重不足，建议优先拾取武器核心！" : "表现尚可，在面对追踪陨石时建议多利用屏幕边缘。";
+            document.getElementById('ai-report').innerText = report;
+        }, 1500);
     }
+
+    // 初始化菜单
+    updateMenuUI();
 </script>
 </body>
 </html>
