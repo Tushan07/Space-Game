@@ -33,6 +33,7 @@
     <div style="display: flex; flex-direction: column; gap: 10px;">
         <button class="btn btn-easy" onclick="startGame('endless')">无尽模式 (极速射爆)</button>
         <button class="btn btn-hard" onclick="startGame('campaign')">闯关模式 (剧情战役)</button>
+        <button class="btn btn-upgrade" onclick="upgradeWeapon()">升级火力 (消耗星币)</button>
     </div>
     <p style="color: #aaa; font-size: 14px; margin-top: 15px; margin-bottom: 0;">当前火力等级: Lv.<span id="weapon-level-display">1</span></p>
 </div>
@@ -46,7 +47,7 @@
 
 <!-- 游戏结束面板 -->
 <div id="game-over" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.9); color: #ff4757; padding: 30px 50px; border: 2px solid #ff4757; border-radius: 10px; text-align: center; display: none; z-index: 10; box-shadow: 0 0 20px #ff4757;">
-    <h2 style="margin-top: 0;">防线失守！</h2>asdfghj
+    <h2 style="margin-top: 0;">防线失守！</h2>
     <p>本次得分: <span id="final-score">0</span></p>
     <p style="color: #ffd700;">获得星币: <span id="earned-coins">0</span></p>
     <p id="ai-report" style="color: #feca57; font-size: 14px; margin-top: 15px;"></p>
@@ -56,7 +57,7 @@
 <script>
     // === 全局状态与本地存档 ===
     let gameState = 'MENU'; 
-    let playerData = JSON.parasdfghjse(localStorage.getItem('spaceGameSave')) || { coins: 0, weaponLevel: 1 };
+    let playerData = JSON.parse(localStorage.getItem('spaceGameSave')) || { coins: 0, weaponLevel: 1 };
 
     // === 关卡数据配置 ===
     const campaignData = [
@@ -68,7 +69,7 @@
     let currentLevelKills = 0;
 
     const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');asdfghj
+    const ctx = canvas.getContext('2d');
     let w, h;
     function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
@@ -80,6 +81,7 @@
     let shootInterval, screenShake = 0;
 
     let touchX = w/2;
+    canvas.addEventListener('touchstart', handleInput);
     canvas.addEventListener('touchmove', handleInput);
     canvas.addEventListener('mousedown', handleInput);
     canvas.addEventListener('mousemove', (e) => { if (e.buttons === 1) handleInput(e); });
@@ -93,6 +95,10 @@
         document.getElementById('coin-display').innerText = playerData.coins;
         document.getElementById('weapon-level-display').innerText = playerData.weaponLevel;
     }
+
+    function upgradeWeapon() {
+        let cost = playerData.weaponLevel * 50;
+        if (playerData.coins >= cost) {
             playerData.coins -= cost;
             playerData.weaponLevel++;
             localStorage.setItem('spaceGameSave', JSON.stringify(playerData));
@@ -133,6 +139,10 @@
         document.getElementById('story-text').innerText = levelConfig.story;
         document.getElementById('story-overlay').style.display = 'flex';
     }
+
+    function startLevelPlay() {
+        document.getElementById('story-overlay').style.display = 'none';
+        gameState = 'PLAYING';
         initGameSession();
     }
 
